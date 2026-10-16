@@ -18,13 +18,24 @@
 
 ## 安装
 
-在**终端**里的 Claude Code 输入（桌面版的 Code 分页不支持这条指令）：
+**方法一（最简单）：** 在系统终端（PowerShell、命令提示字元、macOS / Linux 终端）执行两行，不用打开 Claude：
+
+```
+claude plugin marketplace add KS-Chong/team-hub
+claude plugin install team-hub@team-hub --scope user
+```
+
+**方法二：** 打开 Claude Code 的 CLI（终端里输入 `claude`），在对话框里输入：
 
 ```
 /plugin install team-hub --marketplace KS-Chong/team-hub
 ```
 
-问要不要加这个 marketplace 时按 `y`，scope 选 **user**。装好以后，之后开的每个 Claude 窗口（包括桌面版）都会加载它。已经开着的窗口执行一次 `/reload-plugins`。
+问要不要加这个 marketplace 时按 `y`，scope 选 **user**。（桌面版的 Code 分页不支持这条指令。）
+
+两种方法都要电脑上能执行 `claude` 指令；只装了桌面版的话，先装 [Claude Code CLI](https://docs.claude.com/en/docs/claude-code)。装好以后，之后开的每个 Claude 窗口（包括桌面版）都会加载它；已经开着的窗口执行一次 `/reload-plugins`。
+
+**更新：** 以后这个仓库有新版本，执行 `claude plugin marketplace update team-hub` 再 `claude plugin update team-hub@team-hub`，然后各窗口 `/reload-plugins`。
 
 ## 用法
 
