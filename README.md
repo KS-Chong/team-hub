@@ -18,7 +18,18 @@
 
 ## 安装
 
-**方法一（最简单）：** 在系统终端（PowerShell、命令提示字元、macOS / Linux 终端）执行两行，不用打开 Claude：
+**只用 Claude 桌面版：** 打开 Code 分页，开一个新对话（随便选个文件夹），把下面这段贴进去，让 Claude 替你装：
+
+```
+帮我安装 Claude Code 插件 team-hub，执行这两条：
+claude plugin marketplace add KS-Chong/team-hub
+claude plugin install team-hub@team-hub --scope user
+如果找不到 claude 指令，或者版本太旧，就用桌面版自带的 claude（Windows 在 %APPDATA%\Claude\claude-code\ 下面）。
+```
+
+它执行时会请你批准。装好后开一个新对话（或在开着的对话里打 `/reload-plugins`），插件就会加载。
+
+**方法一（终端）：** 在系统终端（PowerShell、命令提示字元、macOS / Linux 终端）执行两行，不用打开 Claude：
 
 ```
 claude plugin marketplace add KS-Chong/team-hub
