@@ -1,0 +1,5 @@
+{
+  "name": "team-hub",
+  "owner": { "name": "KS-Chong" },
+  "plugins": [{ "name": "team-hub", "source": "./", "description": "多窗口指挥台:部门状态、进度、交接队列、等你决定" }]
+}

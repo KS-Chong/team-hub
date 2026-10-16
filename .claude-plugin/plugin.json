@@ -1,0 +1,6 @@
+{
+  "name": "team-hub",
+  "version": "1.0.0",
+  "description": "多窗口指挥台:同一个项目开几个 Claude 窗口(一个窗口一个部门),互相看到在做什么、进度与额度、交接队列、等你决定的事",
+  "types": "./types/index.d.ts"
+}
