@@ -102,6 +102,19 @@ export const acceptPrompt = (item: HubHandoff) =>
     `老板已确认接手。先用三五句说你打算怎么做,然后开始。做完向老板汇报后,调用 handoff_done 把 ${item.id} 标为完成;没核验的部分照实写。`,
   ].join('\n')
 
+// 好几条交接一起接手:按交来的先后放进同一条指令,内容原样不改写,完成时每条各自标记
+export const acceptAllPrompt = (items: HubHandoff[]) => {
+  const ordered = [...items].sort((a, b) => a.createdAt - b.createdAt)
+  const ids = ordered.map(one => one.id).join('、')
+  return [
+    `【一起接手 ${ordered.length} 条交接】${ids}`,
+    '',
+    ...ordered.flatMap((one, index) => [`## ${index + 1}. ${one.id} · 来自 ${one.from}:${one.title}`, '', one.body, '']),
+    `老板已确认全部接手,要你一起看、一起做。先用三五句说你打算怎么做(哪几条有关联、先做哪条),然后开始。`,
+    `做完向老板汇报后,每一条都要调用 handoff_done 标为完成(${ids});没做完的那条不要标,照实说做到哪。`,
+  ].join('\n')
+}
+
 // 开了指挥台的窗口,每次都会在系统提示里看到这一段:协作规矩由插件自带,项目的 CLAUDE.md 不用再写
 // 这个部门已接手、还没标完成的交接:每一轮都提醒,做完了才记得 handoff_done
 export type OpenHandoff = { id: string; from: string; title: string; acceptedAgo: string }

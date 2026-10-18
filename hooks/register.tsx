@@ -14,6 +14,7 @@ import {
   HANDOFF_DONE_TOOL,
   HANDOFF_SPEC,
   HANDOFF_TOOL,
+  acceptAllPrompt,
   acceptPrompt,
   answerPrompt,
   buildHandoff,
@@ -36,6 +37,8 @@ const stale = atom({ plugin: 'team-hub', key: 'stale' } as const, false)
 const doneSeen = atom({ plugin: 'team-hub', key: 'doneSeen' } as const, {} as Record<string, number>)
 // 正在问「只收起卡片 / 连部门一起删」的那张离线卡片(窗口的会话编号)
 const removing = atom({ plugin: 'team-hub', key: 'removing' } as const, '')
+// 好几条交接在等时,合成卡片展开成逐条处理了没有(默认收起)
+const batchOpen = atom({ plugin: 'team-hub', key: 'batchOpen' } as const, false)
 
 const HANDOFF_FULL = `mcp__team-hub__${HANDOFF_TOOL}`
 const HANDOFF_DONE_FULL = `mcp__team-hub__${HANDOFF_DONE_TOOL}`
@@ -514,10 +517,14 @@ const readUsage = async ($: EngineInterface): Promise<UsageMeter[]> => {
 
 // 输入框上方那一行:有交接等你最要紧,其次是等你决定的事,再其次是谁在工作、做到多少
 const bandSummary = (all: HubStatus[], waiting: HubHandoff[], asked: HubDecision[], now: number) => {
-  if (waiting.length > 0) {
+  if (waiting.length > 1) {
+    const senders = [...new Set(waiting.map(one => one.from))]
+    const who = senders.length === 1 ? `${senders[0]} 的 ` : ''
+    return { tone: 'warning' as const, text: `${who}${waiting.length} 条交接等你接手` }
+  }
+  if (waiting.length === 1) {
     const first = waiting[0]
-    const more = waiting.length > 1 ? ` 等 ${waiting.length} 条` : ''
-    return { tone: 'warning' as const, text: `${first.from} 交接给你:${clip(first.title, 24)}${more} · 等你接手` }
+    return { tone: 'warning' as const, text: `${first.from} 交接给你:${clip(first.title, 24)} · 等你接手` }
   }
   if (asked.length > 0) {
     const first = asked[0]
@@ -863,6 +870,22 @@ export const register: Register = on => {
       await setStatus($, item.id, 'declined')
       $.ui.toast(`已退回 ${item.title}`)
     }
+    // 全部接手:按下那一刻还在等的才算(别的窗口可能刚处理掉),合成一条指令送进来
+    const acceptAll = async () => {
+      const me = await myName($)
+      const still = (await loadHandoffs($)).filter(one => one.status === 'waiting' && isMine(one, me))
+      if (still.length === 0) return
+      const now = Date.now()
+      for (const one of still) await saveHandoff($, { ...one, status: 'accepted', updatedAt: now })
+      await update($, batchOpen, () => false)
+      $.ui.toast(`已接手 ${still.length} 条交接`)
+      await $.prompt.submit({ text: still.length === 1 ? acceptPrompt(still[0]) : acceptAllPrompt(still) })
+    }
+    // 两条以上在等:默认合成一张收起的卡片;点「逐条处理」才展开成一条一张
+    const batched = waiting.length > 1 && !(await read($, batchOpen))
+    const senders = [...new Set(waiting.map(one => one.from))]
+    const batchTitle = senders.length === 1 ? `${senders[0]} 交接给你 · ${waiting.length} 条` : `${waiting.length} 条交接等你接手`
+    const byAge = [...waiting].sort((a, b) => a.createdAt - b.createdAt)
     // × 只给已经结束的(完成 / 退回):点了马上清掉
     const canClear = (item: HubHandoff) => ENDED.includes(item.status)
 
@@ -923,7 +946,36 @@ export const register: Register = on => {
               </Box>
             </Box>
           ))}
-          {waiting.map(item => (
+          {batched && (
+            <Box key="w-batch" flexDirection="column" borderStyle="round" borderColor="warning" paddingX={1} marginBottom={1}>
+              <Text bold color="warning">
+                {batchTitle}
+              </Text>
+              {byAge.map((item, index) => (
+                <Text key={`w-batch-${item.id}`}>
+                  {index + 1}. {item.title}
+                  {senders.length > 1 ? <Text dimColor> · {item.from}</Text> : ''}
+                </Text>
+              ))}
+              <Box flexDirection="row" gap={1} marginTop={1}>
+                <Button key="ok-all" variant="primary" onPress={() => acceptAll()}>
+                  全部接手，一起做
+                </Button>
+                <Button key="batch-open" onPress={() => update($, batchOpen, () => true)}>
+                  逐条处理
+                </Button>
+              </Box>
+            </Box>
+          )}
+          {!batched && waiting.length > 1 && (
+            <Box key="w-batch-close" flexDirection="row" gap={1} marginBottom={1}>
+              <Button key="ok-all" variant="primary" onPress={() => acceptAll()}>
+                全部接手，一起做
+              </Button>
+              <Button key="batch-close" plain dimColor label="收起" onPress={() => update($, batchOpen, () => false)} />
+            </Box>
+          )}
+          {!batched && waiting.map(item => (
             <Box key={`w-${item.id}`} flexDirection="column" borderStyle="round" borderColor="warning" paddingX={1} marginBottom={1}>
               <Text bold color="warning">
                 {item.from} 交接给你
@@ -1002,6 +1054,16 @@ export const register: Register = on => {
             </Box>
           </Box>
         ))}
+        {waiting.length > 1 && (
+          <Box key="w-batch" flexDirection="row" gap={1} marginBottom={1}>
+            <Text bold color="warning">
+              {batchTitle}
+            </Text>
+            <Button key="ok-all" variant="primary" onPress={() => acceptAll()}>
+              全部接手
+            </Button>
+          </Box>
+        )}
         {waiting.map(item => (
           <Box key={`w-${item.id}`} flexDirection="column" marginBottom={1}>
             <Text bold color="warning">

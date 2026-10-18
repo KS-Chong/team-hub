@@ -394,3 +394,36 @@ test('早期版本的看板(~/.claude/lighthouse-hub)照旧用;记不得部门�
   expect(JSON.parse(disk.files.get(`${LEGACY}/status/${ME}.json`)!).last).toBe('改 a.py')
   expect([...disk.files.keys()].some(p => p.includes('/team-hub/'))).toBe(false)
 })
+
+test('两条以上交接在等:合成一张收起的卡片,全部接手 = 一条指令按先后放进全部内容;也能展开逐条处理', async ($, on) => {
+  const disk = setup(on, { departments: { 前端部门: '', 设计部门: '' } })
+  await $.command.run({ command: 'hub-name', args: '前端部门' } as any)
+  const now = Date.now()
+  disk.handoff('H-2', { from: '设计部门', to: '前端部门', toSession: ME, title: '补充:长度上限的排版', body: '第二条正文', createdAt: now })
+  disk.handoff('H-1', { from: '设计部门', to: '前端部门', toSession: ME, title: '简报各状态', body: '第一条正文', createdAt: now - 60000 })
+
+  const band = await $.ui.mount({ plugin: 'team-hub', surface: 'desktop', component: 'AbovePrompt', props: BAND })
+  expect(await band.find({ text: '设计部门 的 2 条交接等你接手' })).toBeDefined()
+  await band.unmount()
+
+  const pane = await $.ui.mount({ plugin: 'team-hub', surface: 'desktop', component: 'Pane', requestId: 'team-hub', props: PANE_PROPS })
+  expect(await pane.find({ text: '设计部门 交接给你 · 2 条' })).toBeDefined()
+  expect(await pane.find({ text: '1. 简报各状态' })).toBeDefined()
+  expect(await pane.find({ key: 'ok-H-1' })).toBeUndefined()
+
+  // 展开 → 逐条的按钮出来;收起 → 回到合成卡片
+  await pane.press({ key: 'batch-open' } as any)
+  expect(await pane.find({ key: 'ok-H-1' })).toBeDefined()
+  await pane.press({ key: 'batch-close' } as any)
+  expect(await pane.find({ key: 'ok-H-1' })).toBeUndefined()
+
+  await pane.press({ key: 'ok-all' } as any)
+  await pane.unmount()
+  expect(disk.queued('H-1').status).toBe('accepted')
+  expect(disk.queued('H-2').status).toBe('accepted')
+  expect(disk.prompts.length).toBe(1)
+  const text = disk.prompts[0]
+  expect(text.startsWith('【一起接手 2 条交接】H-1、H-2')).toBe(true)
+  expect(text.indexOf('第一条正文')).toBeLessThan(text.indexOf('第二条正文'))
+  expect(text).toContain('每一条都要调用 handoff_done')
+})

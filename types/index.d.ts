@@ -84,6 +84,7 @@ declare module 'claude-code' {
       stale: boolean
       doneSeen: Record<string, number>
       removing: string
+      batchOpen: boolean
     }
   }
 }
