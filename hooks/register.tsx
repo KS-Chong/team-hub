@@ -53,7 +53,8 @@ const checkVersion = async ($: EngineInterface) => {
   try {
     const text = String(await $.fs.read(`${$.plugin.root}/hooks/version.ts`))
     const onDisk = /VERSION = '([^']+)'/.exec(text)?.[1]
-    if (onDisk && onDisk !== VERSION) await update($, stale, () => true)
+    // 一样就清掉:$.state 在 /reload-plugins 之后还留着,旧版留下的「过期」标记要靠这里撤掉
+    if (onDisk) await update($, stale, () => onDisk !== VERSION)
   } catch {
     // 读不到就不提醒
   }
@@ -555,6 +556,9 @@ export const register: Register = on => {
       description: '设定这个窗口的部门,例如 /hub-name 代码部门 | 页面、模板、JS',
       argumentHint: '<部门名称> | <一句话分工>',
     })
+    // 新加载的这一份就是磁盘上的版本:先撤掉旧版留在 $.state 里的「过期」标记,再比一次
+    await update($, stale, () => false)
+    await checkVersion($)
     const saved = await $.store.get(`name:${await $.session.id()}`)
     if (typeof saved === 'string' && saved !== '') {
       await update($, name, () => saved)
@@ -620,11 +624,14 @@ export const register: Register = on => {
     if (!board) return next(e)
     const self = await myName($)
 
-    // 插件改过、这个窗口还在跑旧版:先提醒重新加载,其他都往后放
+    // 插件改过、这个窗口还在跑旧版:提醒重新加载,「指挥台」按钮照样留着
     if (await read($, stale)) {
-      const { Box, Text } = $.ui.resolve(e)
+      const { Box, Button, Text } = $.ui.resolve(e)
       return (
-        <Box>
+        <Box flexDirection="row" gap={1} alignItems="center">
+          <Button key="hub-open" onPress={() => openPane($)}>
+            指挥台
+          </Button>
           <Text color="warning" bold>
             指挥台已更新,请在这个窗口执行 /reload-plugins
           </Text>

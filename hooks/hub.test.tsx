@@ -427,3 +427,20 @@ test('两条以上交接在等:合成一张收起的卡片,全部接手 = 一条
   expect(text.indexOf('第一条正文')).toBeLessThan(text.indexOf('第二条正文'))
   expect(text).toContain('每一条都要调用 handoff_done')
 })
+
+test('重新加载以后,旧版留下的「已更新」提醒要自己消失;提醒时「指挥台」按钮照样在', async ($, on) => {
+  const disk = setup(on, { departments: { 前端部门: '' } })
+  await $.command.run({ command: 'hub-name', args: '前端部门' } as any)
+  disk.files.set('VERSION_FILE', "export const VERSION = '9.9.9'")
+  await $.prompt.submit({ text: '继续' } as any)
+  const stale = await $.ui.mount({ plugin: 'team-hub', surface: 'desktop', component: 'AbovePrompt', props: BAND })
+  expect(await stale.find({ text: /指挥台已更新/ })).toBeDefined()
+  expect(await stale.find({ key: 'hub-open' })).toBeDefined()
+  await stale.unmount()
+  // 换上新版(磁盘和运行中的版本一样了)再加载一次
+  disk.files.delete('VERSION_FILE')
+  await $.session.start({ cwd: ROOT, surface: 'desktop', isInteractive: true } as any)
+  const fresh = await $.ui.mount({ plugin: 'team-hub', surface: 'desktop', component: 'AbovePrompt', props: BAND })
+  expect(await fresh.find({ text: /指挥台已更新/ })).toBeUndefined()
+  await fresh.unmount()
+})
